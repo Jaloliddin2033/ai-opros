@@ -1,0 +1,402 @@
+<title>Твоя нейросеть</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=Golos+Text:wght@400;500;600&display=swap">
+<style>
+/* Layout: one 16:9 stage, letterboxed and centered; a living neural network behind, one question at a time on top */
+:root{
+  --void:#05050a; --ink:#f4efe4; --dim:#a9a6b6; --line:#ffffff26;
+  --accent:#f0b84e; --cool:#7fb2ea;
+  --display:"Unbounded","Golos Text",system-ui,sans-serif;
+  --body:"Golos Text",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%;background:var(--void);color:var(--ink)}
+body{font-family:var(--body);margin:0;display:grid;place-items:center;overflow:hidden;box-sizing:border-box;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px}
+.frame{position:relative;width:min(100%,calc((100vh - 32px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))*16/9));aspect-ratio:16/9;max-width:100%;
+  border-radius:18px;overflow:hidden;container-type:inline-size;background:#000;box-shadow:0 0 0 1px #ffffff14,0 30px 80px #000}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.vig{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 55%,transparent 30%,#000000b8 100%)}
+.grain{position:absolute;inset:-50%;pointer-events:none;opacity:.07;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");animation:grain 1.2s steps(6) infinite}
+@keyframes grain{0%{transform:translate(0,0)}33%{transform:translate(-4%,3%)}66%{transform:translate(3%,-5%)}100%{transform:translate(0,0)}}
+
+.scene{position:absolute;inset:0;display:flex;flex-direction:column;padding:4.6cqw 6.5cqw;box-sizing:border-box;gap:1.6cqw}
+.scene.out{animation:out .45s ease forwards}
+.scene.in{animation:in .9s ease both}
+@keyframes out{to{opacity:0;filter:blur(14px);transform:scale(1.03)}}
+@keyframes in{from{opacity:0;filter:blur(18px);transform:scale(.97)}to{opacity:1;filter:none;transform:none}}
+
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--ink);outline-offset:4px}
+.top{display:flex;justify-content:space-between;align-items:center;font-size:max(11px,1cqw);letter-spacing:.3em;text-transform:uppercase;color:var(--dim)}
+.top button{letter-spacing:.2em;text-transform:uppercase;font-size:inherit;color:var(--dim)}
+.top button:hover{color:var(--ink)}
+.num{font-family:var(--display);font-variant-numeric:tabular-nums}
+.prog{flex:1;height:2px;background:#ffffff1a;margin:0 2cqw;border-radius:2px;overflow:hidden}
+.prog i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--cool));transition:width .8s cubic-bezier(.2,.8,.2,1)}
+.mid{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1.9cqw;min-height:0}
+.q{font-family:var(--display);font-weight:600;font-size:max(20px,3cqw);line-height:1.25;margin:0;max-width:34ch;text-wrap:balance;text-shadow:0 2px 30px #000}
+.q span{display:inline-block;opacity:0;filter:blur(8px);transform:translateY(.3em);animation:word .6s ease forwards}
+@keyframes word{to{opacity:1;filter:none;transform:none}}
+.sub{color:var(--dim);font-size:max(13px,1.2cqw);margin:0;max-width:60ch}
+
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1cqw}
+.grid.wide{grid-template-columns:repeat(3,minmax(0,1fr))}
+.chip{display:flex;align-items:center;gap:1cqw;text-align:left;padding:1cqw 1.3cqw;border-radius:1cqw;border:1px solid var(--line);background:#0000005c;backdrop-filter:blur(8px);
+  transition:transform .2s,border-color .25s,background .25s,box-shadow .3s;opacity:0;animation:in .6s ease forwards;min-width:0}
+.chip:hover{transform:translateY(-2px);border-color:#ffffff59}
+.chip .dot{flex:none;width:max(10px,.9cqw);aspect-ratio:1;border-radius:50%;background:var(--c,var(--ink));box-shadow:0 0 12px var(--c,var(--ink))}
+.chip b{display:block;font-family:var(--display);font-weight:600;font-size:max(13px,1.15cqw);letter-spacing:.01em}
+.chip small{display:block;color:var(--dim);font-size:max(10px,.8cqw);letter-spacing:.08em;margin-top:.15em}
+.chip span{min-width:0}
+.chip[aria-pressed="true"]{border-color:var(--c,var(--accent));background:color-mix(in srgb,var(--c,var(--accent)) 18%,#000a);box-shadow:0 0 30px -8px var(--c,var(--accent))}
+.chip .tick{margin-left:auto;flex:none;width:max(16px,1.3cqw);aspect-ratio:1;border-radius:50%;border:1px solid #ffffff40;display:grid;place-items:center;font-size:max(10px,.8cqw)}
+.chip[aria-pressed="true"] .tick{background:var(--c,var(--accent));border-color:transparent;color:var(--void)}
+
+.field{width:min(100%,46cqw);box-sizing:border-box;background:#0000005c;backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:1cqw;color:var(--ink);
+  font-family:var(--display);font-size:max(16px,1.7cqw);padding:1.2cqw 1.5cqw}
+textarea.field{width:min(100%,60cqw);font-family:var(--body);font-size:max(15px,1.35cqw);resize:none;height:8cqw;min-height:90px;line-height:1.45}
+.field::placeholder{color:#a9a6b680}
+.field:focus{border-color:var(--accent);outline:none}
+
+.row{display:flex;gap:1.4cqw;flex-wrap:wrap;align-items:center}
+.cta{padding:1.15cqw 3.2cqw;border-radius:999px;background:var(--ink);color:var(--void);font-family:var(--display);font-weight:600;font-size:max(14px,1.3cqw);letter-spacing:.08em;transition:transform .2s,box-shadow .3s,opacity .3s}
+.cta:hover{transform:scale(1.04);box-shadow:0 0 50px -8px var(--ink)}
+.cta:disabled{opacity:.3;pointer-events:none}
+.ghost{background:none;color:var(--ink);border:1px solid #ffffff40}
+.hint{color:var(--dim);font-size:max(11px,.95cqw);margin:0}
+kbd{font-family:var(--body);border:1px solid #ffffff40;border-radius:4px;padding:0 .4em}
+
+.title{font-family:var(--display);font-weight:800;font-size:max(32px,6cqw);line-height:.98;margin:0;letter-spacing:-.02em;text-wrap:balance}
+.title em{font-style:normal;background:linear-gradient(90deg,var(--accent),#e86a8f 50%,var(--cool));-webkit-background-clip:text;background-clip:text;color:transparent;background-size:200% 100%;animation:shine 6s linear infinite}
+@keyframes shine{to{background-position:200% 0}}
+.names{display:flex;flex-wrap:wrap;gap:.6cqw 1.4cqw;font-size:max(11px,.9cqw);letter-spacing:.25em;text-transform:uppercase;color:var(--dim)}
+.names i{font-style:normal;transition:color .3s}
+.names i.on{color:var(--ink)}
+
+.breath{font-family:var(--display);font-size:max(18px,2.2cqw);letter-spacing:.2em;margin:auto;opacity:.85;animation:breath 2s ease-in-out infinite}
+@keyframes breath{50%{opacity:.25;letter-spacing:.32em}}
+
+.done{display:grid;grid-template-columns:1.1fr 1fr;gap:4cqw;align-items:center;flex:1;min-height:0}
+.done>div{min-width:0;display:flex;flex-direction:column;gap:1.5cqw}
+.status{display:flex;gap:.8em;align-items:center;font-size:max(12px,1.05cqw);color:var(--dim)}
+.status i{width:.7em;height:.7em;border-radius:50%;background:var(--s,#3ed1a8);box-shadow:0 0 14px var(--s,#3ed1a8)}
+.sum{background:#00000066;backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:1.4cqw;padding:2cqw;display:flex;flex-direction:column;gap:1cqw}
+.sum div{display:grid;grid-template-columns:11cqw 1fr;gap:1cqw;font-size:max(12px,1.05cqw);line-height:1.4}
+.sum dt,.sum .k{color:var(--dim);letter-spacing:.15em;text-transform:uppercase;font-size:max(10px,.8cqw);padding-top:.2em}
+.label{margin:0;font-size:max(11px,.9cqw);letter-spacing:.3em;text-transform:uppercase;color:var(--dim)}
+.big{font-family:var(--display);font-weight:800;font-size:max(28px,4.4cqw);line-height:1;margin:0}
+.lead{margin:0;font-size:max(14px,1.3cqw);line-height:1.55;max-width:46ch}
+
+@media (max-width:760px){
+  body{overflow:auto;place-items:start center}
+  .frame{aspect-ratio:auto;width:100%;min-height:calc(100svh - 32px);container-type:normal}
+  .scene{position:relative;min-height:calc(100svh - 32px);padding:24px 18px;gap:18px}
+  .mid{gap:16px}
+  .grid,.grid.wide{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .chip{padding:10px 12px;gap:10px;border-radius:12px}
+  .field,textarea.field{width:100%;padding:14px 16px;border-radius:12px}
+  .done{grid-template-columns:1fr}
+  .sum{padding:16px;gap:10px;border-radius:14px}
+  .sum div{grid-template-columns:96px 1fr}
+  .cta{padding:14px 28px}
+  .names{gap:6px 14px}
+}
+@media (prefers-reduced-motion:reduce){
+  .grain,.title em,.breath{animation:none}
+  .scene.in,.scene.out,.q span,.chip{animation-duration:.01s}
+}
+</style>
+
+<div class="frame" id="frame">
+  <canvas id="cv"></canvas>
+  <div class="vig"></div>
+  <div class="grain"></div>
+  <div class="scene" id="scene"></div>
+</div>
+
+<script>
+/* ============ НАСТРОЙКА TELEGRAM ============
+   1. В @BotFather: /newbot → получишь токен вида 123456:ABC-DEF...
+   2. Напиши своему боту любое сообщение (иначе он не сможет тебе писать).
+   3. Свой chat_id узнай у @userinfobot.
+   Вставь оба значения ниже. Пока они пустые, опрос работает в демо-режиме. */
+const TG={ token:"9167301259:AAG6ktqshLBVupTVyMFtqKhQliCAzRjWf20", chatId:"777066179" };
+
+/* ============ Тексты: узбекский и русский ============ */
+const T={
+ uz:{top:"So'rovnoma · 2026",fast:"bir daqiqadan kam",next:"Keyingi",send:"Yuborish",skip:"O'tkazib yuborish",back:"← Orqaga",home:"← Boshiga",
+   picked:"Tanlandi: ",pickOne:"Kamida bittasini tanla",sending:"YUBORILMOQDA",thanks:"Rahmat",done:"Tayyor",yours:"Sening neyrotarmog'ing",anon:"Anonim",
+   ok:"Javob so'rovnoma muallifiga yuborildi",demo:"Demo rejim: bot hali ulanmagan, hech narsa yuborilmadi",fail:"Yuborib bo'lmadi. Internetni tekshirib, qayta urinib ko'r",
+   retry:"Qayta yuborish",again:"Qaytadan o'tish",noneHead:"Hammasi oldinda",
+   noneLead:"Hozircha neyrotarmoqlardan foydalanmaysan. Ro'yxatdagi istalganining bepul versiyasidan boshla, masalan Gemini yoki ChatGPT.",
+   manyLead:(n,m)=>`${n} ta neyrotarmoqdan foydalanasan, asosiysi — ${m}.`,oneLead:"Bitta neyrotarmoqqa sodiq qolyapsan.",
+   rows:["Ism","Neyrotarmoqlar","Nima uchun","Obuna","Qanchalik tez-tez","Istak"],
+   q:{name:["Isming nima?","Taxallus ham bo'ladi. Shunda muallif javob kimniki ekanini biladi.","Ism yoki taxallus"],
+      use:["Qaysi neyrotarmoqlardan foydalanasan?","Oxirgi bir oyda kamida bir marta ochganlaringni belgila."],
+      main:["Ulardan qaysi biri asosiy?","Birinchi ochadiganing."],
+      for:["Ulardan nima uchun foydalanasan?","Bir nechtasini tanlash mumkin."],
+      pay:["Obuna uchun pul to'laysanmi?","Masalan, Plus, Pro yoki Advanced."],
+      freq:["Neyrotarmoqlar bilan qanchalik tez-tez gaplashasan?",""],
+      note:["Neyrotarmoqlarda senga nima yetishmaydi?","Majburiy emas. Bir jumla yetarli.","Masalan: o'zbek tilini yaxshiroq tushunsa"]}},
+ ru:{top:"Опрос · 2026",fast:"меньше минуты",next:"Дальше",send:"Отправить",skip:"Пропустить",back:"← Назад",home:"← В начало",
+   picked:"Выбрано: ",pickOne:"Выбери хотя бы один вариант",sending:"ОТПРАВЛЯЮ",thanks:"Спасибо",done:"Готово",yours:"Твоя нейросеть",anon:"Аноним",
+   ok:"Ответ отправлен автору опроса",demo:"Демо-режим: бот ещё не подключён, ничего не отправлено",fail:"Не получилось отправить. Проверь интернет и попробуй ещё раз",
+   retry:"Отправить ещё раз",again:"Пройти заново",noneHead:"Всё впереди",
+   noneLead:"Ты пока не пользуешься нейросетями. Начни с бесплатной версии любой из списка, например Gemini или ChatGPT.",
+   manyLead:(n,m)=>`Ты пользуешься ${n} нейросетями, и ${m} у тебя главная.`,oneLead:"Ты остаёшься верен одной нейросети.",
+   rows:["Имя","Нейросети","Для чего","Подписка","Как часто","Пожелание"],
+   q:{name:["Как тебя зовут?","Можно ник. Так автор поймёт, чей это ответ.","Имя или ник"],
+      use:["Какими нейросетями ты пользуешься?","Отметь всё, что открывал хотя бы раз за последний месяц."],
+      main:["А какая из них главная?","Та, которую открываешь первой."],
+      for:["Для чего ты их используешь?","Можно выбрать несколько."],
+      pay:["Платишь за подписку?","Например, Plus, Pro или Advanced."],
+      freq:["Как часто ты общаешься с нейросетями?",""],
+      note:["Чего тебе не хватает в нейросетях?","Необязательно. Одной фразы достаточно.","Например: чтобы лучше понимали узбекский"]}}
+};
+let lang="uz";
+const t=()=>T[lang];
+
+/* v — значение для Telegram (по-русски), ru/uz — что видит человек */
+const AIS=[
+ {v:"ChatGPT",m:"OpenAI",c:"#3ed1a8"},
+ {v:"Claude",m:"Anthropic",c:"#e8835a"},
+ {v:"Gemini",m:"Google",c:"#7fb2ea"},
+ {v:"DeepSeek",m:"DeepSeek",c:"#5b7bf0"},
+ {v:"Grok",m:"xAI",c:"#c9c4d8"},
+ {v:"Perplexity",m:"Perplexity",c:"#22c4d3"},
+ {v:"Copilot",m:"Microsoft",c:"#9b7af0"},
+ {v:"Le Chat",m:"Mistral",c:"#f08a3e"},
+ {v:"Meta AI",m:"Meta",c:"#4c8df0"},
+ {v:"Qwen",m:"Alibaba",c:"#b388f5"},
+ {v:"Другая",ru:["Другая","не из списка"],uz:["Boshqasi","ro'yxatda yo'q"],c:"#f0b84e"},
+ {v:"Пока ни одной",ru:["Пока ни одной","не пользуюсь"],uz:["Hali hech biri","foydalanmayman"],c:"#a9a6b6",solo:true}
+];
+const FOR=[
+ {v:"Учёба",ru:["Учёба","объяснения, домашка"],uz:["O'qish","tushuntirish, uy vazifasi"],c:"#7fb2ea"},
+ {v:"Работа",ru:["Работа","задачи, документы"],uz:["Ish","vazifalar, hujjatlar"],c:"#f0b84e"},
+ {v:"Код",ru:["Код","сайты, программы"],uz:["Kod","saytlar, dasturlar"],c:"#3ed1a8"},
+ {v:"Тексты",ru:["Тексты","посты, письма"],uz:["Matnlar","postlar, xatlar"],c:"#e86a8f"},
+ {v:"Картинки",ru:["Картинки","генерация, дизайн"],uz:["Rasmlar","generatsiya, dizayn"],c:"#f08a3e"},
+ {v:"Видео",ru:["Видео","ролики, анимация"],uz:["Video","roliklar, animatsiya"],c:"#9b7af0"},
+ {v:"Поиск",ru:["Поиск","вместо Google"],uz:["Qidiruv","Google o'rniga"],c:"#22c4d3"},
+ {v:"Перевод",ru:["Перевод","языки"],uz:["Tarjima","tillar"],c:"#c9e05a"},
+ {v:"Просто поболтать",ru:["Просто поболтать","советы, мысли"],uz:["Shunchaki suhbat","maslahat, fikrlar"],c:"#c9c4d8"}
+];
+const PAY=[
+ {v:"Нет, только бесплатно",ru:["Нет, только бесплатно","хватает лимитов"],uz:["Yo'q, faqat bepul","limitlar yetadi"],c:"#3ed1a8"},
+ {v:"Одна подписка",ru:["Одна подписка","плачу за одну"],uz:["Bitta obuna","bittasiga to'layman"],c:"#f0b84e"},
+ {v:"Несколько подписок",ru:["Несколько подписок","плачу за 2 и больше"],uz:["Bir nechta obuna","2 va undan ko'piga"],c:"#e86a8f"}
+];
+const FREQ=[
+ {v:"Каждый день",ru:["Каждый день","не представляю без них"],uz:["Har kuni","ularsiz tasavvur qilolmayman"],c:"#e86a8f"},
+ {v:"Несколько раз в неделю",ru:["Несколько раз в неделю","по делу"],uz:["Haftada bir necha marta","kerak bo'lganda"],c:"#f0b84e"},
+ {v:"Пару раз в месяц",ru:["Пару раз в месяц","иногда"],uz:["Oyda bir-ikki marta","ba'zan"],c:"#7fb2ea"},
+ {v:"Почти никогда",ru:["Почти никогда","редкий гость"],uz:["Deyarli hech qachon","kamdan-kam"],c:"#a9a6b6"}
+];
+const lab=o=>o[lang]?o[lang][0]:o.v, meta=o=>o[lang]?o[lang][1]:o.m;
+const labOf=(list,v)=>{const o=list.find(x=>x.v===v);return o?lab(o):v};
+
+const none=()=>ans.use.includes("Пока ни одной");
+const STEPS=[
+ {id:"name",type:"text",pal:["#07060f","#3d2c7a","#f0b84e"]},
+ {id:"use",type:"multi",opts:()=>AIS,pal:["#03141a","#0fb39a","#7fb2ea"]},
+ {id:"main",type:"single",opts:()=>AIS.filter(a=>ans.use.includes(a.v)),skip:()=>none()||ans.use.length<2,pal:["#160b02","#f0b84e","#e86a8f"]},
+ {id:"for",type:"multi",opts:()=>FOR,wide:true,skip:none,pal:["#0b0620","#5b2bd6","#e04ab0"]},
+ {id:"pay",type:"single",opts:()=>PAY,wide:true,skip:none,pal:["#04120a","#3ed1a8","#d6f05a"]},
+ {id:"freq",type:"single",opts:()=>FREQ,wide:true,skip:none,pal:["#170606","#e8582a","#f2b33d"]},
+ {id:"note",type:"area",pal:["#021019","#22d3ee","#3b6fe0"]}
+];
+
+/* ============ Логика ============ */
+let ans,pos,sent;
+function reset(){ans={name:"",use:[],main:"",for:[],pay:"",freq:"",note:""};pos=-1;sent=false}
+reset();
+const order=()=>STEPS.filter(s=>!s.skip||!s.skip());
+const scene=document.getElementById("scene");
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const words=s=>s.split(" ").map((w,i)=>`<span style="animation-delay:${.15+i*.06}s">${esc(w)}</span>`).join(" ");
+
+let busy=false;
+function go(fn){ if(busy)return; busy=true; scene.classList.remove("in"); scene.classList.add("out");
+  setTimeout(()=>{fn();scene.classList.remove("out");void scene.offsetWidth;scene.classList.add("in");busy=false;
+    const f=scene.querySelector("input,textarea,.chip,.cta");f&&f.focus({preventScroll:true})},450)}
+
+function intro(){
+  world(["#07060f","#3d2c7a","#b0457e"]);
+  scene.innerHTML=`<div class="top"><span>So'rovnoma · Опрос</span><span class="num">2026</span></div>
+  <div class="mid">
+    <p class="names" id="names">${AIS.slice(0,10).map(a=>`<i>${a.v}</i>`).join("")}</p>
+    <h1 class="title">Sening<br><em>neyrotarmog'ing</em></h1>
+    <p class="sub">Твоя нейросеть · 1 daqiqa / 1 минута</p>
+    <p class="label">Tilni tanlang · Выберите язык</p>
+    <div class="row"><button class="cta lang" data-l="uz">O'zbekcha</button><button class="cta lang" data-l="ru">Русский</button></div>
+  </div>`;
+  scene.querySelectorAll(".lang").forEach(b=>b.onclick=()=>{lang=b.dataset.l;document.documentElement.lang=lang;next()});
+  const ns=[...document.querySelectorAll("#names i")];let k=0;
+  clearInterval(intro.t);intro.t=setInterval(()=>{if(!document.body.contains(ns[0]))return clearInterval(intro.t);ns.forEach((n,i)=>n.classList.toggle("on",i===k%ns.length));k++},700);
+}
+
+function step(){
+  const list=order(),s=list[pos],total=list.length,L=t(),[qq,sub,ph]=L.q[s.id];
+  world(s.pal);
+  let ctrl="";
+  if(s.type==="text") ctrl=`<input class="field" id="f-${s.id}" maxlength="40" autocomplete="off" placeholder="${esc(ph)}" value="${esc(ans[s.id])}"><div class="row"><button class="cta" id="nx">${L.next}</button><p class="hint"><kbd>Enter</kbd></p></div>`;
+  else if(s.type==="area") ctrl=`<textarea class="field" id="f-${s.id}" maxlength="300" placeholder="${esc(ph)}">${esc(ans[s.id])}</textarea><div class="row"><button class="cta" id="nx">${L.send}</button><button class="cta ghost" id="sk">${L.skip}</button></div>`;
+  else {
+    const opts=s.opts(),multi=s.type==="multi",cur=ans[s.id];
+    ctrl=`<div class="grid${s.wide?" wide":""}">${opts.map((o,i)=>{const on=multi?cur.includes(o.v):cur===o.v;
+      return `<button class="chip" style="--c:${o.c};animation-delay:${.25+i*.04}s" data-v="${esc(o.v)}" aria-pressed="${on}"><i class="dot"></i><span><b>${esc(lab(o))}</b><small>${esc(meta(o))}</small></span>${multi?'<i class="tick">✓</i>':""}</button>`}).join("")}</div>`
+      +(multi?`<div class="row"><button class="cta" id="nx" ${cur.length?"":"disabled"}>${L.next}</button><p class="hint" id="cnt">${cur.length?L.picked+cur.length:L.pickOne}</p></div>`:"");
+  }
+  scene.innerHTML=`<div class="top"><button id="bk">${pos>0?L.back:L.home}</button><span class="prog"><i style="width:${pos/total*100}%"></i></span><span class="num">${String(pos+1).padStart(2,"0")} / ${String(total).padStart(2,"0")}</span></div>
+  <div class="mid"><h2 class="q">${words(qq)}</h2>${sub?`<p class="sub">${esc(sub)}</p>`:""}${ctrl}</div>`;
+  requestAnimationFrame(()=>{const b=scene.querySelector(".prog i");if(b)b.style.width=(pos+1)/total*100+"%"});
+
+  document.getElementById("bk").onclick=back;
+  const nx=document.getElementById("nx"),sk=document.getElementById("sk");
+  if(s.type==="text"||s.type==="area"){
+    const f=document.getElementById("f-"+s.id);
+    f.oninput=()=>ans[s.id]=f.value;
+    nx.onclick=()=>{ans[s.id]=f.value.trim();next()};
+    if(sk)sk.onclick=()=>{ans[s.id]="";next()};
+    if(s.type==="text")f.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();nx.click()}};
+  } else {
+    scene.querySelectorAll(".chip").forEach(b=>b.onclick=()=>{
+      const v=b.dataset.v;
+      if(s.type==="multi"){
+        const o=s.opts().find(x=>x.v===v);let a=ans[s.id];
+        if(a.includes(v))a=a.filter(x=>x!==v);
+        else a=o.solo?[v]:a.filter(x=>!s.opts().find(y=>y.v===x).solo).concat(v);
+        ans[s.id]=a;
+        scene.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed",a.includes(c.dataset.v)));
+        nx.disabled=!a.length;document.getElementById("cnt").textContent=a.length?L.picked+a.length:L.pickOne;
+      } else {
+        ans[s.id]=v;scene.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed",c===b));
+        setTimeout(next,320);
+      }
+    });
+    if(nx)nx.onclick=next;
+  }
+}
+
+function next(){
+  const list=order();
+  if(pos>=0&&list[pos].id==="use"){ if(ans.use.length===1&&!none())ans.main=ans.use[0]; if(!ans.use.includes(ans.main))ans.main=ans.use.length===1?ans.use[0]:""; }
+  if(pos+1>=order().length) return go(finish);
+  pos++; go(step);
+}
+function back(){ if(pos<=0){pos=-1;return go(intro)} pos--; go(step) }
+
+/* ============ Отправка ============ */
+function device(){const u=navigator.userAgent;return /iPhone|iPad/.test(u)?"iPhone/iPad":/Android/.test(u)?"Android":/Windows/.test(u)?"Windows":/Mac/.test(u)?"Mac":"Другое"}
+function message(){
+  const d=new Date(),p=n=>String(n).padStart(2,"0");
+  const L=[
+    "🧠 Новый ответ · Опрос нейросетей","",
+    "👤 Имя: "+(ans.name||"Аноним"),
+    "🤖 Пользуется: "+(ans.use.join(", ")||"—")
+  ];
+  if(!none()){
+    L.push("⭐ Главная: "+(ans.main||"—"));
+    L.push("🎯 Для чего: "+(ans.for.join(", ")||"—"));
+    L.push("💳 Подписка: "+(ans.pay||"—"));
+    L.push("⏱ Как часто: "+(ans.freq||"—"));
+  }
+  if(ans.note)L.push("💬 Не хватает: "+ans.note);
+  L.push("","🌐 "+(lang==="uz"?"Узбекский":"Русский")+" · 📱 "+device()+" · 🕒 "+p(d.getDate())+"."+p(d.getMonth()+1)+"."+d.getFullYear()+" "+p(d.getHours())+":"+p(d.getMinutes()));
+  return L.join("\n");
+}
+async function send(){
+  if(!TG.token||!TG.chatId) return "demo";
+  const ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),10000);
+  try{
+    const r=await fetch(`https://api.telegram.org/bot${TG.token}/sendMessage`,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({chat_id:TG.chatId,text:message(),disable_web_page_preview:true}),signal:ctl.signal});
+    const j=await r.json().catch(()=>({}));
+    return j.ok?"ok":"fail";
+  }catch(e){return "fail"}finally{clearTimeout(tm)}
+}
+
+async function finish(){
+  world(["#000000","#ffffff","#3d2c7a"]);
+  scene.innerHTML=`<div class="breath">${t().sending}</div>`;
+  const [res]=await Promise.all([sent?Promise.resolve(sent):send(),new Promise(r=>setTimeout(r,1600))]);
+  if(res==="ok")sent="ok";
+  go(()=>result(res));
+}
+function result(res){
+  const L=t(),main=AIS.find(a=>a.v===ans.main)||AIS.find(a=>a.v===ans.use[0]);
+  world(["#05050a",main?main.c:"#f0b84e","#e86a8f"]);
+  const st={ok:["#3ed1a8",L.ok],demo:["#f0b84e",L.demo],fail:["#e8582a",L.fail]}[res];
+  const mainLab=labOf(AIS,ans.main||ans.use[0]);
+  const head=none()?L.noneHead:mainLab;
+  const lead=none()?L.noneLead:ans.use.length>1?L.manyLead(ans.use.length,mainLab):L.oneLead;
+  const R=L.rows,rows=[[R[0],ans.name||L.anon],[R[1],ans.use.map(v=>labOf(AIS,v)).join(", ")]];
+  if(!none())rows.push([R[2],ans.for.map(v=>labOf(FOR,v)).join(", ")],[R[3],labOf(PAY,ans.pay)],[R[4],labOf(FREQ,ans.freq)]);
+  if(ans.note)rows.push([R[5],ans.note]);
+  scene.innerHTML=`<div class="top"><span>${L.thanks}${ans.name?", "+esc(ans.name):""}</span><span class="num">${L.done}</span></div>
+  <div class="done">
+    <div>
+      <p class="label">${L.yours}</p>
+      <p class="big" style="color:${main&&!none()?main.c:"var(--ink)"}">${esc(head)}</p>
+      <p class="lead">${esc(lead)}</p>
+      <p class="status" style="--s:${st[0]}"><i></i>${st[1]}</p>
+      <div class="row">${res==="fail"?`<button class="cta" id="retry">${L.retry}</button>`:""}<button class="cta ${res==="fail"?"ghost":""}" id="again">${L.again}</button></div>
+    </div>
+    <div class="sum">${rows.map(r=>`<div><span class="k">${r[0]}</span><span>${esc(r[1]||"—")}</span></div>`).join("")}</div>
+  </div>`;
+  document.getElementById("again").onclick=()=>{reset();go(intro)};
+  const rt=document.getElementById("retry");if(rt)rt.onclick=()=>go(finish);
+}
+
+document.addEventListener("keydown",e=>{
+  if(busy||e.target.tagName==="TEXTAREA"||e.target.tagName==="INPUT")return;
+  if(pos<0&&document.querySelector(".lang")){
+    if(e.key==="1"||e.key==="2"){e.preventDefault();lang=e.key==="1"?"uz":"ru";next()}
+    return;
+  }
+  if(e.key!=="Enter")return;
+  const nx=document.getElementById("nx");if(nx&&!nx.disabled&&document.activeElement.tagName!=="BUTTON"){e.preventDefault();nx.click()}
+});
+
+/* ============ Живой фон: нейросеть ============ */
+const cv=document.getElementById("cv"),cx=cv.getContext("2d"),frame=document.getElementById("frame");
+let W=0,H=0;
+function size(){const d=Math.min(2,devicePixelRatio||1);W=frame.clientWidth;H=frame.clientHeight;cv.width=W*d;cv.height=H*d;cx.setTransform(d,0,0,d,0,0)}
+new ResizeObserver(size).observe(frame);size();
+const hex=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
+const mix=(a,b,t)=>a.map((v,i)=>v+(b[i]-v)*t);
+const rgba=(c,a)=>`rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a})`;
+let pal=["#07060f","#3d2c7a","#b0457e"].map(hex),from=pal,to=pal,k=1;
+function world(p){from=pal.map(c=>c.slice());to=p.map(hex);k=0}
+const N=Array.from({length:64},()=>({x:Math.random(),y:Math.random(),vx:(Math.random()-.5)*.00025,vy:(Math.random()-.5)*.00025,r:Math.random()*1.8+.8,o:Math.random()*6.28}));
+const pulses=[];
+const slow=matchMedia("(prefers-reduced-motion: reduce)").matches?.2:1;
+let last=performance.now();
+function frameLoop(now){
+  const dt=Math.min(50,now-last)*slow;last=now;const t=now/1000*slow;
+  if(k<1){k=Math.min(1,k+dt/1400);const e=k*k*(3-2*k);pal=from.map((c,i)=>mix(c,to[i],e))}
+  cx.globalCompositeOperation="source-over";cx.fillStyle=rgba(pal[0],1);cx.fillRect(0,0,W,H);
+  cx.globalCompositeOperation="lighter";
+  for(let i=0;i<5;i++){const x=W*(.5+.4*Math.sin(t*.12+i*1.7)),y=H*(.5+.34*Math.cos(t*.1+i*2.3)),r=Math.max(W,H)*(.3+.08*Math.sin(t*.2+i));
+    const g=cx.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,rgba(i%2?pal[1]:pal[2],.22));g.addColorStop(1,rgba(pal[1],0));cx.fillStyle=g;cx.fillRect(0,0,W,H)}
+  const md=Math.max(W,H)*.16;
+  for(const n of N){n.x+=n.vx*dt;n.y+=n.vy*dt;if(n.x<0||n.x>1)n.vx*=-1;if(n.y<0||n.y>1)n.vy*=-1}
+  cx.lineWidth=1;
+  for(let i=0;i<N.length;i++)for(let j=i+1;j<N.length;j++){
+    const a=N[i],b=N[j],dx=(a.x-b.x)*W,dy=(a.y-b.y)*H,d=Math.hypot(dx,dy);
+    if(d<md){cx.strokeStyle=rgba(mix(pal[1],pal[2],.5),(1-d/md)*.28);cx.beginPath();cx.moveTo(a.x*W,a.y*H);cx.lineTo(b.x*W,b.y*H);cx.stroke();
+      if(pulses.length<14&&Math.random()<.0006*dt)pulses.push({a,b,p:0})}
+  }
+  for(let i=pulses.length-1;i>=0;i--){const q=pulses[i];q.p+=dt/900;if(q.p>=1){pulses.splice(i,1);continue}
+    const x=(q.a.x+(q.b.x-q.a.x)*q.p)*W,y=(q.a.y+(q.b.y-q.a.y)*q.p)*H;
+    const g=cx.createRadialGradient(x,y,0,x,y,10);g.addColorStop(0,rgba(pal[2],.9));g.addColorStop(1,rgba(pal[2],0));cx.fillStyle=g;cx.fillRect(x-10,y-10,20,20)}
+  for(const n of N){const f=.55+.45*Math.sin(t*2+n.o);cx.fillStyle=rgba(f>.7?pal[2]:pal[1],.35+.5*f);cx.beginPath();cx.arc(n.x*W,n.y*H,n.r,0,7);cx.fill()}
+  requestAnimationFrame(frameLoop);
+}
+requestAnimationFrame(frameLoop);
+
+intro();
+</script>
